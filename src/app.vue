@@ -1,33 +1,14 @@
 <template>
   <!-- 本体部分 -->
-  <div :id="id"
-       :class="['vue-puzzle-vcode', { show_: show }]"
-       @mousedown="onCloseMouseDown"
-       @mouseup="onCloseMouseUp"
-       @touchstart="onCloseMouseDown"
-       @touchend="onCloseMouseUp">
-    <div class="vue-auth-box_"
-         @mousedown.stop
-         @touchstart.stop>
-      <div class="auth-body_"
-           :style="`height: ${canvasHeight}px`">
+  <div :id="id" :class="['vue-puzzle-vcode', { show_: show }]" @mousedown="onCloseMouseDown" @mouseup="onCloseMouseUp" @touchstart="onCloseMouseDown" @touchend="onCloseMouseUp">
+    <div class="vue-auth-box_" @mousedown.stop @touchstart.stop>
+      <div class="auth-body_" :style="`height: ${canvasHeight}px`">
         <!-- 主图，有缺口 -->
-        <canvas ref="canvas1"
-                :width="canvasWidth"
-                :height="canvasHeight"
-                :style="`width:${canvasWidth}px;height:${canvasHeight}px`" />
+        <canvas ref="canvas1" :width="canvasWidth" :height="canvasHeight" :style="`width:${canvasWidth}px;height:${canvasHeight}px`" />
         <!-- 成功后显示的完整图 -->
-        <canvas ref="canvas3"
-                :class="['auth-canvas3_', { show: isSuccess }]"
-                :width="canvasWidth"
-                :height="canvasHeight"
-                :style="`width:${canvasWidth}px;height:${canvasHeight}px`" />
+        <canvas ref="canvas3" :class="['auth-canvas3_', { show: isSuccess }]" :width="canvasWidth" :height="canvasHeight" :style="`width:${canvasWidth}px;height:${canvasHeight}px`" />
         <!-- 小图 -->
-        <canvas :width="puzzleBaseSize"
-                class="auth-canvas2_"
-                :height="canvasHeight"
-                ref="canvas2"
-                :style="
+        <canvas :width="puzzleBaseSize" class="auth-canvas2_" :height="canvasHeight" ref="canvas2" :style="
             `width:${puzzleBaseSize}px;height:${canvasHeight}px;transform:translateX(${styleWidth -
               sliderBaseSize -
               (puzzleBaseSize - sliderBaseSize) *
@@ -46,29 +27,20 @@
         <div :class="['info-box_', { show: infoBoxShow }, { fail: infoBoxFail }]">
           {{ infoText }}
         </div>
-        <div :class="['flash_', { show: isSuccess }]"
-             :style="
+        <div :class="['flash_', { show: isSuccess }]" :style="
             `transform: translateX(${
               isSuccess
                 ? `${canvasWidth + canvasHeight * 0.578}px`
                 : `-${canvasHeight * 0.578}px`
             }) skew(-30deg, 0);`
           "></div>
-        <img class="reset_"
-             @click="reset"
-             :src="resetSvg" />
+        <img class="reset_" @click="onReload" :src="resetSvg" />
       </div>
       <div class="auth-control_">
-        <div class="range-box"
-             :style="`height:${sliderBaseSize}px`">
+        <div class="range-box" :style="`height:${sliderBaseSize}px`">
           <div class="range-text">{{ sliderText }}</div>
-          <div class="range-slider"
-               ref="range-slider"
-               :style="`width:${styleWidth}px`">
-            <div :class="['range-btn', { isDown: mouseDown }]"
-                 :style="`width:${sliderBaseSize}px`"
-                 @mousedown="onRangeMouseDown($event)"
-                 @touchstart="onRangeMouseDown($event)">
+          <div class="range-slider" ref="range-slider" :style="`width:${styleWidth}px`">
+            <div :class="['range-btn', { isDown: mouseDown }]" :style="`width:${sliderBaseSize}px`" @mousedown="onRangeMouseDown($event)" @touchstart="onRangeMouseDown($event)">
               <div></div>
               <div></div>
               <div></div>
@@ -129,6 +101,14 @@ export default {
     sliderText: {
       type: String,
       default: "拖动滑块完成拼图"
+    },
+    pinPosition: {
+      type: Array,
+      default: () => ([20, 20])
+    },
+    reload: {
+      type: Function,
+      default: null
     }
   },
 
@@ -260,14 +240,16 @@ export default {
       ctx2.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
 
       // 取一个随机坐标，作为拼图块的位置
-      this.pinX = this.getRandom(
-        this.puzzleBaseSize,
-        this.canvasWidth - this.puzzleBaseSize - 20
-      ); // 留20的边距
-      this.pinY = this.getRandom(
-        20,
-        this.canvasHeight - this.puzzleBaseSize - 20
-      ); // 主图高度 - 拼图块自身高度 - 20边距
+      // this.pinX = this.getRandom(
+      //   this.puzzleBaseSize,
+      //   this.canvasWidth - this.puzzleBaseSize - 20
+      // ); // 留20的边距
+      // this.pinY = this.getRandom(
+      //   20,
+      //   this.canvasHeight - this.puzzleBaseSize - 20
+      // ); // 主图高度 - 拼图块自身高度 - 20边距
+      this.pinX = this.pinPosition[0]
+      this.pinY = this.pinPosition[1]
       img.crossOrigin = "anonymous"; // 匿名，想要获取跨域的图片
       img.onload = () => {
         const [x, y, w, h] = this.makeImgSize(img);
@@ -538,6 +520,8 @@ export default {
               (this.canvasWidth - this.sliderBaseSize)) -
           3
       );
+      // 真实移动的 x
+      const realMoveX = this.styleWidth - this.sliderBaseSize - 3
       if (x < this.range) {
         // 成功
         this.infoText = this.successText;
@@ -549,7 +533,7 @@ export default {
         clearTimeout(this.timer1);
         this.timer1 = setTimeout(() => {
           // 成功的回调
-          this.$emit("success", x);
+          this.$emit("success", x, realMoveX);
         }, 800);
       } else {
         // 失败
@@ -564,6 +548,14 @@ export default {
         this.timer1 = setTimeout(() => {
           this.reset();
         }, 800);
+      }
+    },
+    // 刷新验证码
+    onReload () {
+      if (this.reload) {
+        this.reload(this.reset)
+      } else {
+        this.reset()
       }
     },
     // 重置
